@@ -1,0 +1,32 @@
+MesocyclePlanner-iOS/
+├── App/
+│   ├── MesocyclePlannerApp.swift
+│   └── ContentView.swift
+├── Core/
+│   ├── Networking/
+│   │   └── APIClient.swift
+│   ├── Storage/
+│   │   └── KeychainManager.swift
+│   └── DesignSystem.swift
+├── Models/
+│   └── Models.swift
+├── Services/
+│   ├── AuthService.swift
+│   ├── ExerciseService.swift
+│   └── MesocycleService.swift
+├── Views/
+│   ├── Auth/
+│   │   ├── LoginView.swift
+│   │   └── RegisterView.swift
+│   ├── Exercises/
+│   │   └── ExerciseLibraryView.swift
+│   ├── Mesocycles/
+│   │   └── MesocycleListView.swift
+│   ├── Workouts/
+│   │   └── WorkoutListView.swift
+│   ├── Profile/
+│   │   └── ProfileView.swift
+│   ├── Components/
+│   │   └── CustomComponents.swift
+│   └── MainTabView.swift
+└── README.md
