@@ -51,7 +51,7 @@ class APIClient {
     private let session: URLSession
     
     private init() {
-        self.baseURL = "http://localhost:8000/api/v1"
+        self.baseURL = "http://localhost:8000"
         
         let configuration = URLSessionConfiguration.default
         configuration.timeoutIntervalForRequest = 30
