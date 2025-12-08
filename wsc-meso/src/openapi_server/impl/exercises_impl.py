@@ -39,11 +39,10 @@ class ExercisesApiImpl(BaseExercisesApi):
         global _db_initialized
         
         if not _db_initialized:
-            # Initialize database connection without creating indexes
-            # (indexes will be created by init script or manually)
+            # Initialize database connection with authentication
             db_config = get_database_config()
-            db_config._connection_string = "mongodb://localhost:27017"
-            db_config._database_name = "mesocycle_planner"
+            db_config.connection_string = "mongodb://admin:password123@localhost:27017"
+            db_config.database_name = "mesocycle_planner"
             await db_config.connect()
             _db_initialized = True
         
@@ -130,16 +129,31 @@ class ExercisesApiImpl(BaseExercisesApi):
         )
         
         # Get total count
-        total = await repo.count(
+        total_count = await repo.count(
             muscle_group=domain_group,
             exercise_type=domain_type
         )
         
+        # Calculate total pages
+        total_pages = (total_count + limit - 1) // limit if limit > 0 else 0
+        
+        # Convert to ExerciseSummary for list response
+        exercise_summaries = [
+            ExerciseSummary(
+                id=ex.id,
+                name=ex.name,
+                muscle_group=MuscleGroup(ex.muscle_group.value),
+                type=ExerciseType(ex.type.value),
+                primary_muscles=ex.primary_muscles,
+            )
+            for ex in exercises
+        ]
+        
         return ListExercises200Response(
-            exercises=[self._domain_to_api_model(ex) for ex in exercises],
-            total=total,
+            exercises=exercise_summaries,
+            total_count=total_count,
             page=page,
-            limit=limit
+            total_pages=total_pages
         )
     
     async def search_exercises(
@@ -160,6 +174,7 @@ class ExercisesApiImpl(BaseExercisesApi):
                 name=ex.name,
                 muscle_group=MuscleGroup(ex.muscle_group.value),
                 type=ExerciseType(ex.type.value),
+                primary_muscles=ex.primary_muscles,
             )
             for ex in exercises
         ]
