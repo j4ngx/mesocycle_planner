@@ -1,0 +1,2093 @@
+openapi: 3.1.0
+info:
+  title: Mesocycle Planner API - Advanced Periodization
+  description: |
+    Complete API for fitness training app with advanced periodization support.
+    Features: 440+ exercises database, Linear/DUP/Block/Polarized periodization models,
+    microcycle management, auto-progression, session logging, and AI-generated training plans.
+
+    Supports user authentication, mesocycle planning, workout tracking, and progress analytics.
+  version: 1.0.0
+  contact:
+    name: Mesocycle Planner Development Team
+    email: dev@mesocycleplanner.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:8000/api/v1
+    description: Local Development
+  - url: https://staging.mesocycleplanner.com/api/v1
+    description: Staging
+  - url: https://api.mesocycleplanner.com/api/v1
+    description: Production
+
+tags:
+  - name: Authentication
+    description: User authentication and authorization
+  - name: Users
+    description: User management operations
+  - name: Exercises
+    description: 440+ exercises database with biomechanical execution details
+  - name: Mesocycles
+    description: Complete periodization (microcycles, DUP, block, linear, polarized)
+  - name: Workouts
+    description: Workout session management
+  - name: Tracking
+    description: Session logging with AI adjustment and analytics
+  - name: Progression
+    description: Auto-progression tables and weekly weight recommendations
+  - name: Progress
+    description: Progress tracking and analytics
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    GroupFilter:
+      name: group
+      in: query
+      schema:
+        $ref: "#/components/schemas/MuscleGroup"
+    TypeFilter:
+      name: type
+      in: query
+      schema:
+        $ref: "#/components/schemas/ExerciseType"
+    PageParam:
+      name: page
+      in: query
+      schema:
+        type: integer
+        default: 1
+        minimum: 1
+    LimitParam:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        default: 20
+        maximum: 100
+    WeekParam:
+      name: week
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+
+  schemas:
+    # ===== ENUMS =====
+    MuscleGroup:
+      type: string
+      enum:
+        - pectorals
+        - back
+        - shoulders
+        - biceps
+        - triceps
+        - forearms
+        - legs
+        - abs
+      description: 8 main muscle groups
+
+    ExerciseType:
+      type: string
+      enum:
+        - free_weight
+        - machine
+        - cable
+        - smith_machine
+        - bodyweight
+        - other
+      description: Equipment classification
+
+    PeriodizationModel:
+      type: string
+      enum:
+        - linear
+        - daily_undulating
+        - block
+        - polarized
+      description: |
+        linear: Volume↑→Intensity↑ | daily_undulating: Daily rep changes | 
+        block: Sequential focus phases | polarized: 80/20 intensity distribution
+
+    TrainingPhase:
+      type: string
+      enum:
+        - accumulation
+        - transmutation
+        - realization
+        - competition
+        - deload
+      description: Bompa/Pybar periodization phases
+
+    TrainingSplit:
+      type: string
+      enum:
+        - push
+        - pull
+        - legs
+        - fullbody
+        - upper
+        - lower
+      description: Weekly training split patterns
+
+    TrainingGoal:
+      type: string
+      enum:
+        - strength
+        - hypertrophy
+        - power
+        - endurance
+        - definition
+      description: Primary training objective
+
+    TrainingLevel:
+      type: string
+      enum:
+        - beginner
+        - intermediate
+        - advanced
+        - elite
+
+    MesocycleStatus:
+      type: string
+      enum:
+        - planned
+        - active
+        - completed
+        - paused
+
+    # ===== USER SCHEMAS =====
+    User:
+      type: object
+      required:
+        - id
+        - email
+        - username
+        - created_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        email:
+          type: string
+          format: email
+          example: "user@example.com"
+        username:
+          type: string
+          example: "athlete123"
+        full_name:
+          type: string
+          example: "John Doe"
+        training_level:
+          $ref: "#/components/schemas/TrainingLevel"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    UserCreate:
+      type: object
+      required:
+        - email
+        - username
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+        username:
+          type: string
+          minLength: 3
+        password:
+          type: string
+          minLength: 8
+        full_name:
+          type: string
+        training_level:
+          $ref: "#/components/schemas/TrainingLevel"
+
+    UserLogin:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+
+    Token:
+      type: object
+      properties:
+        access_token:
+          type: string
+        token_type:
+          type: string
+          example: "bearer"
+        expires_in:
+          type: integer
+          example: 3600
+
+    # ===== EXERCISE SCHEMAS =====
+    Exercise:
+      type: object
+      required:
+        - id
+        - name
+        - number
+        - muscle_group
+        - primary_muscles
+      properties:
+        id:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: "Bench Press"
+        number:
+          type: string
+          example: "1"
+        muscle_group:
+          $ref: "#/components/schemas/MuscleGroup"
+        type:
+          $ref: "#/components/schemas/ExerciseType"
+        primary_muscles:
+          type: array
+          items:
+            type: string
+          example: ["pectoralis_major", "triceps", "anterior_deltoid"]
+        secondary_muscles:
+          type: array
+          items:
+            type: string
+          example: ["serratus_anterior", "coracobrachialis"]
+        antagonist_muscles:
+          type: array
+          items:
+            type: string
+          example: ["latissimus_dorsi", "biceps"]
+        execution:
+          type: string
+          maxLength: 2000
+          example: "Lie flat on bench, pronated grip shoulder-width apart. Lower bar to mid-chest while keeping elbows at 45° angle. Press explosively without locking elbows."
+        comments:
+          type: string
+          example: "Avoid excessive back arch. Primary pec development exercise."
+        common_mistakes:
+          type: array
+          items:
+            type: string
+          example:
+            [
+              "Excessive back arch",
+              "Full elbow lockout",
+              "Bouncing bar off chest",
+            ]
+        variants:
+          type: array
+          items:
+            type: string
+          example: ["Incline 30°", "Decline 30°", "Dumbbells", "Close grip"]
+        pdf_page:
+          type: integer
+          example: 34
+        difficulty:
+          $ref: "#/components/schemas/TrainingLevel"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    ExerciseSummary:
+      type: object
+      required:
+        - id
+        - name
+        - muscle_group
+        - primary_muscles
+      properties:
+        id:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: "Bench Press"
+        muscle_group:
+          $ref: "#/components/schemas/MuscleGroup"
+        primary_muscles:
+          type: array
+          items:
+            type: string
+          example: ["pectoralis_major"]
+        type:
+          $ref: "#/components/schemas/ExerciseType"
+
+    # ===== PERIODIZATION SCHEMAS =====
+    Microcycle:
+      type: object
+      required:
+        - id
+        - mesocycle_id
+        - microcycle_number
+        - phase
+      properties:
+        id:
+          type: integer
+        mesocycle_id:
+          type: integer
+        microcycle_number:
+          type: integer
+          example: 1
+        week_start:
+          type: integer
+          example: 1
+        week_end:
+          type: integer
+          example: 2
+        phase:
+          $ref: "#/components/schemas/TrainingPhase"
+        intensity_range:
+          type: object
+          properties:
+            min_pct:
+              type: number
+              example: 0.60
+            max_pct:
+              type: number
+              example: 0.70
+        reps_range:
+          type: string
+          example: "12-15"
+        sets_range:
+          type: string
+          example: "3-4"
+        rir:
+          type: integer
+          example: 2
+          description: Reps In Reserve
+        weekly_volume_multiplier:
+          type: number
+          example: 1.2
+        frequency_per_week:
+          type: integer
+          example: 5
+
+    ExerciseMicrocycleAssignment:
+      type: object
+      properties:
+        exercise_id:
+          type: integer
+        sets:
+          type: integer
+          example: 4
+        reps:
+          type: string
+          example: "8-12"
+        target_rpe:
+          type: integer
+          example: 8
+        rest_seconds:
+          type: integer
+          example: 120
+        weekly_progression_pct:
+          type: number
+          example: 0.025
+
+    TrainingDay:
+      type: object
+      properties:
+        day_of_week:
+          type: integer
+          minimum: 1
+          maximum: 7
+          description: 1=Monday, 7=Sunday
+        split:
+          $ref: "#/components/schemas/TrainingSplit"
+        exercises:
+          type: array
+          items:
+            $ref: "#/components/schemas/ExerciseMicrocycleAssignment"
+        estimated_duration_minutes:
+          type: integer
+          example: 75
+        warmup_sets:
+          type: integer
+          example: 2
+
+    Mesocycle:
+      type: object
+      required:
+        - id
+        - user_id
+        - name
+        - periodization_model
+        - goal
+        - duration_weeks
+        - start_date
+        - end_date
+        - status
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: "12w Hypertrophy DUP - Strength Phase"
+        description:
+          type: string
+        periodization_model:
+          $ref: "#/components/schemas/PeriodizationModel"
+        goal:
+          $ref: "#/components/schemas/TrainingGoal"
+        duration_weeks:
+          type: integer
+          minimum: 4
+          maximum: 16
+          example: 12
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+        status:
+          $ref: "#/components/schemas/MesocycleStatus"
+        training_level:
+          $ref: "#/components/schemas/TrainingLevel"
+        weekly_frequency:
+          type: integer
+          minimum: 3
+          maximum: 6
+          example: 5
+        microcycles:
+          type: array
+          minItems: 3
+          items:
+            $ref: "#/components/schemas/Microcycle"
+        weekly_structure:
+          type: array
+          items:
+            $ref: "#/components/schemas/TrainingDay"
+        deload_weeks:
+          type: array
+          uniqueItems: true
+          items:
+            type: integer
+          example: [4, 8, 12]
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    MesocycleCreate:
+      type: object
+      required:
+        - name
+        - goal
+        - start_date
+        - end_date
+        - weekly_frequency
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        periodization_model:
+          $ref: "#/components/schemas/PeriodizationModel"
+        goal:
+          $ref: "#/components/schemas/TrainingGoal"
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+        weekly_frequency:
+          type: integer
+          minimum: 3
+          maximum: 6
+        duration_weeks:
+          type: integer
+          minimum: 4
+          maximum: 16
+        microcycles:
+          type: array
+          items:
+            $ref: "#/components/schemas/Microcycle"
+
+    # ===== WORKOUT SCHEMAS =====
+    Workout:
+      type: object
+      required:
+        - id
+        - mesocycle_id
+        - name
+        - scheduled_date
+      properties:
+        id:
+          type: string
+          format: uuid
+        mesocycle_id:
+          type: string
+          format: uuid
+        microcycle_id:
+          type: integer
+        name:
+          type: string
+          example: "Upper Body Strength"
+        description:
+          type: string
+        scheduled_date:
+          type: string
+          format: date-time
+        completed:
+          type: boolean
+          default: false
+        completed_at:
+          type: string
+          format: date-time
+        duration_minutes:
+          type: integer
+        notes:
+          type: string
+        split:
+          $ref: "#/components/schemas/TrainingSplit"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    WorkoutCreate:
+      type: object
+      required:
+        - mesocycle_id
+        - name
+        - scheduled_date
+      properties:
+        mesocycle_id:
+          type: string
+          format: uuid
+        microcycle_id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+        scheduled_date:
+          type: string
+          format: date-time
+        split:
+          $ref: "#/components/schemas/TrainingSplit"
+        notes:
+          type: string
+
+    # ===== SESSION & TRACKING SCHEMAS =====
+    TrainingSession:
+      type: object
+      required:
+        - id
+        - mesocycle_id
+        - date
+      properties:
+        id:
+          type: integer
+        mesocycle_id:
+          type: string
+          format: uuid
+        microcycle_id:
+          type: integer
+        week_number:
+          type: integer
+        date:
+          type: string
+          format: date
+        exercises_performed:
+          type: array
+          items:
+            type: object
+            properties:
+              exercise_id:
+                type: integer
+              planned_sets:
+                type: integer
+              sets_performed:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    weight_kg:
+                      type: number
+                      example: 80.0
+                    reps_achieved:
+                      type: integer
+                      example: 10
+                    actual_rpe:
+                      type: integer
+                      example: 8
+                    reps_in_reserve:
+                      type: integer
+                      example: 2
+
+    ProgressionTable:
+      type: object
+      properties:
+        goal:
+          $ref: "#/components/schemas/TrainingGoal"
+        intensity_pct:
+          type: string
+          example: "70-85%"
+        repetitions:
+          type: string
+          example: "6-12"
+        sets_recommended:
+          type: integer
+          example: 4
+        rest_interval:
+          type: string
+          example: "90-120s"
+        rir_target:
+          type: integer
+          example: 2
+
+    ProgressionRecommendation:
+      type: object
+      properties:
+        exercise_id:
+          type: integer
+        previous_weight:
+          type: number
+        previous_reps:
+          type: integer
+        recommended_weight:
+          type: number
+        recommended_reps:
+          type: string
+        progression_pct:
+          type: number
+          example: 0.025
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+          example: 0.92
+
+    Progress:
+      type: object
+      required:
+        - id
+        - user_id
+        - date
+        - metric_type
+        - value
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        date:
+          type: string
+          format: date
+        metric_type:
+          type: string
+          enum:
+            - weight
+            - body_fat
+            - measurement
+            - strength
+            - endurance
+        value:
+          type: number
+          format: float
+        unit:
+          type: string
+          example: "kg"
+        notes:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    ProgressCreate:
+      type: object
+      required:
+        - date
+        - metric_type
+        - value
+      properties:
+        date:
+          type: string
+          format: date
+        metric_type:
+          type: string
+          enum:
+            - weight
+            - body_fat
+            - measurement
+            - strength
+            - endurance
+        value:
+          type: number
+          format: float
+        unit:
+          type: string
+        notes:
+          type: string
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+
+paths:
+  # ===== AUTHENTICATION =====
+  /auth/register:
+    post:
+      tags:
+        - Authentication
+      summary: Register a new user
+      operationId: registerUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserCreate"
+      responses:
+        "201":
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: User already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: Login user
+      operationId: loginUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserLogin"
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Token"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  # ===== USERS =====
+  /users/me:
+    get:
+      tags:
+        - Users
+      summary: Get current user profile
+      operationId: getCurrentUser
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    put:
+      tags:
+        - Users
+      summary: Update current user profile
+      operationId: updateCurrentUser
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                full_name:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                training_level:
+                  $ref: "#/components/schemas/TrainingLevel"
+      responses:
+        "200":
+          description: User updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  # ===== EXERCISES =====
+  /exercises:
+    get:
+      tags:
+        - Exercises
+      summary: List exercises with advanced filtering
+      operationId: listExercises
+      parameters:
+        - $ref: "#/components/parameters/GroupFilter"
+        - $ref: "#/components/parameters/TypeFilter"
+        - $ref: "#/components/parameters/PageParam"
+        - $ref: "#/components/parameters/LimitParam"
+      responses:
+        "200":
+          description: Paginated exercise list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  exercises:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ExerciseSummary"
+                  total_count:
+                    type: integer
+                  page:
+                    type: integer
+                  total_pages:
+                    type: integer
+
+  /exercises/{exercise_id}:
+    get:
+      tags:
+        - Exercises
+      summary: Complete exercise details with biomechanical execution
+      operationId: getExercise
+      parameters:
+        - name: exercise_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Full exercise specification
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Exercise"
+        "404":
+          description: Exercise not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /exercises/search:
+    get:
+      tags:
+        - Exercises
+      summary: Full-text search exercises
+      operationId: searchExercises
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+            example: "bench press"
+        - $ref: "#/components/parameters/LimitParam"
+      responses:
+        "200":
+          description: Search results
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ExerciseSummary"
+
+  /exercises/{group}/recommended:
+    get:
+      tags:
+        - Exercises
+      summary: Top recommended exercises per muscle group
+      operationId: getRecommendedExercises
+      parameters:
+        - name: group
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/MuscleGroup"
+        - name: level
+          in: query
+          schema:
+            $ref: "#/components/schemas/TrainingLevel"
+            default: "intermediate"
+      responses:
+        "200":
+          description: Recommended exercises by group
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Exercise"
+
+  # ===== MESOCYCLES & PERIODIZATION =====
+  /mesocycles:
+    get:
+      tags:
+        - Mesocycles
+      summary: List all mesocycles for current user
+      operationId: listMesocycles
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            $ref: "#/components/schemas/MesocycleStatus"
+        - $ref: "#/components/parameters/PageParam"
+        - $ref: "#/components/parameters/LimitParam"
+      responses:
+        "200":
+          description: List of mesocycles
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Mesocycle"
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+                  total_pages:
+                    type: integer
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    post:
+      tags:
+        - Mesocycles
+      summary: Create a new mesocycle
+      operationId: createMesocycle
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MesocycleCreate"
+      responses:
+        "201":
+          description: Mesocycle created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Mesocycle"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /mesocycles/ai-generate:
+    post:
+      tags:
+        - Mesocycles
+      summary: AI Periodized Mesocycle Generator (DUP/Block optimized)
+      operationId: generateAIMesocycle
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - goal
+              properties:
+                goal:
+                  $ref: "#/components/schemas/TrainingGoal"
+                duration_weeks:
+                  type: integer
+                  default: 12
+                  minimum: 4
+                  maximum: 16
+                periodization_model:
+                  $ref: "#/components/schemas/PeriodizationModel"
+                  default: "daily_undulating"
+                weekly_frequency:
+                  type: integer
+                  default: 5
+                  minimum: 3
+                  maximum: 6
+                training_level:
+                  $ref: "#/components/schemas/TrainingLevel"
+                  default: "intermediate"
+      responses:
+        "200":
+          description: Complete AI-generated periodized mesocycle
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Mesocycle"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /mesocycles/{mesocycle_id}:
+    get:
+      tags:
+        - Mesocycles
+      summary: Get mesocycle by ID
+      operationId: getMesocycle
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: mesocycle_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Mesocycle details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Mesocycle"
+        "404":
+          description: Mesocycle not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    put:
+      tags:
+        - Mesocycles
+      summary: Update mesocycle
+      operationId: updateMesocycle
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: mesocycle_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MesocycleCreate"
+      responses:
+        "200":
+          description: Mesocycle updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Mesocycle"
+        "404":
+          description: Mesocycle not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    delete:
+      tags:
+        - Mesocycles
+      summary: Delete mesocycle
+      operationId: deleteMesocycle
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: mesocycle_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Mesocycle deleted successfully
+        "404":
+          description: Mesocycle not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /mesocycles/{mesocycle_id}/microcycle/{microcycle_number}:
+    get:
+      tags:
+        - Mesocycles
+      summary: Current microcycle details + weekly programming
+      operationId: getMicrocycle
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: mesocycle_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: microcycle_number
+          in: path
+          required: true
+          schema:
+            type: integer
+        - $ref: "#/components/parameters/WeekParam"
+      responses:
+        "200":
+          description: Microcycle details with training days
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  microcycle:
+                    $ref: "#/components/schemas/Microcycle"
+                  training_days:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/TrainingDay"
+                  intensity_guidelines:
+                    type: string
+                    example: "67.5-77.5kg (67.5-77.5%)"
+        "404":
+          description: Microcycle not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /mesocycles/{mesocycle_id}/progression:
+    get:
+      tags:
+        - Mesocycles
+      summary: Auto-progression recommendations for next week
+      operationId: getMesocycleProgression
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: mesocycle_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/WeekParam"
+      responses:
+        "200":
+          description: Progression recommendations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  next_week_weights:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ProgressionRecommendation"
+                  projected_volume:
+                    type: number
+                  expected_rpe:
+                    type: integer
+        "404":
+          description: Mesocycle not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /mesocycles/{mesocycle_id}/dashboard:
+    get:
+      tags:
+        - Mesocycles
+      summary: Mesocycle progress dashboard + charts data
+      operationId: getMesocycleDashboard
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: mesocycle_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Dashboard data with analytics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  completion_percentage:
+                    type: number
+                    example: 0.42
+                  current_phase:
+                    $ref: "#/components/schemas/Microcycle"
+                  avg_weekly_volume:
+                    type: number
+                  avg_1rm_estimate:
+                    type: number
+                  training_adherence:
+                    type: number
+                    example: 0.88
+                  chart_data:
+                    type: object
+                    properties:
+                      weekly_intensity:
+                        type: array
+                        items:
+                          type: number
+                      weekly_volume:
+                        type: array
+                        items:
+                          type: number
+                      adherence_trend:
+                        type: array
+                        items:
+                          type: number
+        "404":
+          description: Mesocycle not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  # ===== WORKOUTS =====
+  /workouts:
+    get:
+      tags:
+        - Workouts
+      summary: List workouts
+      operationId: listWorkouts
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: mesocycle_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: completed
+          in: query
+          schema:
+            type: boolean
+        - $ref: "#/components/parameters/PageParam"
+        - $ref: "#/components/parameters/LimitParam"
+      responses:
+        "200":
+          description: List of workouts
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Workout"
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+                  total_pages:
+                    type: integer
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    post:
+      tags:
+        - Workouts
+      summary: Create a new workout
+      operationId: createWorkout
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WorkoutCreate"
+      responses:
+        "201":
+          description: Workout created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Workout"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /workouts/{workout_id}:
+    get:
+      tags:
+        - Workouts
+      summary: Get workout by ID
+      operationId: getWorkout
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: workout_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Workout details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Workout"
+        "404":
+          description: Workout not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    put:
+      tags:
+        - Workouts
+      summary: Update workout
+      operationId: updateWorkout
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: workout_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WorkoutCreate"
+      responses:
+        "200":
+          description: Workout updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Workout"
+        "404":
+          description: Workout not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    delete:
+      tags:
+        - Workouts
+      summary: Delete workout
+      operationId: deleteWorkout
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: workout_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Workout deleted successfully
+        "404":
+          description: Workout not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /workouts/{workout_id}/complete:
+    post:
+      tags:
+        - Workouts
+      summary: Mark workout as completed
+      operationId: completeWorkout
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: workout_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                duration_minutes:
+                  type: integer
+                notes:
+                  type: string
+      responses:
+        "200":
+          description: Workout marked as completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Workout"
+        "404":
+          description: Workout not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  # ===== PROGRESSION TABLES =====
+  /progression/{goal}:
+    get:
+      tags:
+        - Progression
+      summary: Standard progression tables by training goal
+      operationId: getProgressionTable
+      parameters:
+        - name: goal
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/TrainingGoal"
+      responses:
+        "200":
+          description: Progression table for goal
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProgressionTable"
+        "404":
+          description: Goal not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  # ===== SESSION TRACKING =====
+  /sessions:
+    post:
+      tags:
+        - Tracking
+      summary: Log completed training session
+      operationId: logSession
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TrainingSession"
+      responses:
+        "201":
+          description: Session recorded successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrainingSession"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /sessions/smart-log:
+    post:
+      tags:
+        - Tracking
+      summary: Smart session logging with AI progression adjustment
+      operationId: smartLogSession
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - mesocycle_id
+                - week_number
+                - performance_data
+              properties:
+                mesocycle_id:
+                  type: string
+                  format: uuid
+                microcycle_id:
+                  type: integer
+                week_number:
+                  type: integer
+                performance_data:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      exercise_id:
+                        type: integer
+                      sets_performed:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            weight_kg:
+                              type: number
+                            reps_achieved:
+                              type: integer
+                            actual_rpe:
+                              type: integer
+                            subjective_fatigue:
+                              type: integer
+                              minimum: 1
+                              maximum: 10
+      responses:
+        "200":
+          description: Session logged + next session recommendations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  session:
+                    $ref: "#/components/schemas/TrainingSession"
+                  next_session_adjustments:
+                    type: object
+                  overtraining_risk:
+                    type: boolean
+                  recovery_recommendation:
+                    type: string
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /stats/progress/{user_id}:
+    get:
+      tags:
+        - Tracking
+      summary: User strength progression analytics
+      operationId: getUserProgressStats
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: exercise_id
+          in: query
+          schema:
+            type: integer
+        - name: weeks_back
+          in: query
+          schema:
+            type: integer
+            default: 12
+            maximum: 52
+      responses:
+        "200":
+          description: Complete progression analytics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  exercise:
+                    $ref: "#/components/schemas/ExerciseSummary"
+                  progression_data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        date:
+                          type: string
+                          format: date
+                        max_1rm_estimate:
+                          type: number
+                        total_volume:
+                          type: number
+                        avg_rpe:
+                          type: number
+                  strength_velocity:
+                    type: number
+                    example: 0.85
+                    description: "%/week"
+        "404":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  # ===== PROGRESS =====
+  /progress:
+    get:
+      tags:
+        - Progress
+      summary: List progress entries
+      operationId: listProgress
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: metric_type
+          in: query
+          schema:
+            type: string
+            enum:
+              - weight
+              - body_fat
+              - measurement
+              - strength
+              - endurance
+        - name: start_date
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: end_date
+          in: query
+          schema:
+            type: string
+            format: date
+        - $ref: "#/components/parameters/PageParam"
+        - $ref: "#/components/parameters/LimitParam"
+      responses:
+        "200":
+          description: List of progress entries
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Progress"
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+                  total_pages:
+                    type: integer
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    post:
+      tags:
+        - Progress
+      summary: Create a new progress entry
+      operationId: createProgress
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProgressCreate"
+      responses:
+        "201":
+          description: Progress entry created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Progress"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /progress/{progress_id}:
+    get:
+      tags:
+        - Progress
+      summary: Get progress entry by ID
+      operationId: getProgress
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: progress_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Progress entry details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Progress"
+        "404":
+          description: Progress entry not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    put:
+      tags:
+        - Progress
+      summary: Update progress entry
+      operationId: updateProgress
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: progress_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProgressCreate"
+      responses:
+        "200":
+          description: Progress entry updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Progress"
+        "404":
+          description: Progress entry not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    delete:
+      tags:
+        - Progress
+      summary: Delete progress entry
+      operationId: deleteProgress
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: progress_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Progress entry deleted successfully
+        "404":
+          description: Progress entry not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /progress/analytics:
+    get:
+      tags:
+        - Progress
+      summary: Get progress analytics
+      operationId: getProgressAnalytics
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: metric_type
+          in: query
+          required: true
+          schema:
+            type: string
+            enum:
+              - weight
+              - body_fat
+              - measurement
+              - strength
+              - endurance
+        - name: start_date
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: end_date
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Progress analytics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  metric_type:
+                    type: string
+                  average:
+                    type: number
+                  min:
+                    type: number
+                  max:
+                    type: number
+                  trend:
+                    type: string
+                    enum:
+                      - increasing
+                      - decreasing
+                      - stable
+                  data_points:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        date:
+                          type: string
+                          format: date
+                        value:
+                          type: number
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
