@@ -22,11 +22,13 @@ struct MesocycleListView: View {
                     )
                 } else {
                     List(mesocycleService.mesocycles) { mesocycle in
-                        MesocycleCard(mesocycle: mesocycle)
-                            .listRowInsets(EdgeInsets())
-                            .listRowSeparator(.hidden)
-                            .padding(.horizontal)
-                            .padding(.vertical, AppSpacing.xs)
+                        NavigationLink(destination: MesocycleDetailView(mesocycle: mesocycle)) {
+                            MesocycleCard(mesocycle: mesocycle)
+                        }
+                        .listRowInsets(EdgeInsets())
+                        .listRowSeparator(.hidden)
+                        .padding(.horizontal)
+                        .padding(.vertical, AppSpacing.xs)
                     }
                     .listStyle(.plain)
                 }

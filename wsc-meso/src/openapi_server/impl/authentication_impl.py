@@ -76,11 +76,11 @@ class AuthenticationApiImpl(BaseAuthenticationApi):
             raise HTTPException(status_code=401, detail="Invalid credentials")
         
         # Verify password
-        if not verify_password(user_login.password, user.password_hash):
+        if not verify_password(user_login.password, user.hashed_password):
             raise HTTPException(status_code=401, detail="Invalid credentials")
         
         # Create access token
-        access_token = create_access_token(data={"user_id": user.id})
+        access_token = create_access_token(data={"user_id": str(user.id)})
         
         return Token(
             access_token=access_token,
@@ -114,13 +114,13 @@ class AuthenticationApiImpl(BaseAuthenticationApi):
         user = User.create(
             email=user_create.email,
             username=user_create.username,
-            password_hash=password_hash,
+            hashed_password=password_hash,
             full_name=user_create.full_name,
             training_level=training_level
         )
         
         # Save to database
-        created_user = await repo.create(user)
+        created_user = await repo.save(user)
         
         return self._domain_to_api_model(created_user)
 

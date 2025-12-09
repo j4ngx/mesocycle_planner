@@ -40,6 +40,12 @@ struct ProfileView: View {
                 // Settings
                 Section("Settings") {
                     NavigationLink {
+                        ProgressTrackingView()
+                    } label: {
+                        Label("Progress Tracking", systemImage: "chart.line.uptrend.xyaxis")
+                    }
+                    
+                    NavigationLink {
                         Text("Edit Profile")
                     } label: {
                         Label("Edit Profile", systemImage: "person.fill")
